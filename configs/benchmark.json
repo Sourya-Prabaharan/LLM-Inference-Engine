@@ -1,0 +1,11 @@
+{
+  "kernel_warmups": 5,
+  "kernel_repetitions": 30,
+  "end_to_end_repetitions": 5,
+  "attention_lengths": [128, 256, 512, 1024, 2048, 4096],
+  "attention_heads": 32,
+  "kv_heads": 4,
+  "head_dimension": 64,
+  "kernel_precision": "fp32",
+  "note": "Documents benchmark defaults; individual scripts expose their CLI parameters."
+}

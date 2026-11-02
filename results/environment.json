@@ -1,0 +1,16 @@
+{
+  "os": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "machine": "arm64",
+  "python": "3.13.1",
+  "memory_bytes": 8589934592,
+  "cuda_toolkit": null,
+  "nvidia_gpu": null,
+  "packages": {
+    "numpy": "2.3.3",
+    "safetensors": "0.6.2",
+    "torch": "2.8.0",
+    "transformers": "4.57.0",
+    "huggingface-hub": "0.35.3",
+    "tokenizers": "0.22.1"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "kind": "analytical_allocation_accounting_not_gpu_measurement",
+  "lengths": [
+    17,
+    31,
+    65,
+    127,
+    255,
+    511,
+    1023
+  ],
+  "block_size": 16,
+  "used_bytes": 91418624,
+  "contiguous_assigned_bytes": 645922816,
+  "paged_assigned_bytes": 92995584,
+  "contiguous_waste_bytes": 554504192,
+  "paged_internal_fragmentation_bytes": 1576960,
+  "waste_reduction_fraction": 0.9971560900300642,
+  "note": "Free pool blocks are reusable capacity, not released CUDA memory. Pool reservation is excluded from assigned-byte comparison."
+}
