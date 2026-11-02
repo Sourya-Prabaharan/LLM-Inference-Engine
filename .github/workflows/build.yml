@@ -20,5 +20,19 @@ jobs:
       - uses: actions/checkout@v4
       - run: python3 -m pip install 'cmake>=3.24,<4'
       - run: cmake -S . -B build -DLLM_CUDA=ON -DCMAKE_BUILD_TYPE=Release
-      - run: cmake --build build --parallel 2
+      - name: Compile CUDA and publish failure diagnostics
+        shell: bash
+        run: |
+          set +e
+          cmake --build build --parallel 2 2>&1 | tee cuda-build.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            python3 - <<'PYDIAGNOSTICS'
+          from pathlib import Path
+          text = Path('cuda-build.log').read_text(errors='replace')[-14000:]
+          escaped = text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print('::error title=CUDA compiler diagnostics::' + escaped)
+          PYDIAGNOSTICS
+          fi
+          exit "$status"
       # Standard hosted runners do not expose NVIDIA GPUs. No runtime pass is claimed.

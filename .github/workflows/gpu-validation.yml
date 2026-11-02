@@ -1,0 +1,27 @@
+name: NVIDIA runtime validation
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    # Explicitly dispatched only after an owned/approved GPU runner is configured.
+    runs-on: [self-hosted, linux, x64, gpu]
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install isolated Python dependencies
+        run: |
+          python3 -m venv .venv-gpu
+          .venv-gpu/bin/python -m pip install -r requirements.txt
+      - name: Validate and measure on NVIDIA hardware
+        run: |
+          source .venv-gpu/bin/activate
+          ./scripts/validate_gpu.sh
+      - name: Preserve evidence even when a correctness gate fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gpu-validation-${{ github.sha }}
+          path: results/gpu/
+          if-no-files-found: warn
