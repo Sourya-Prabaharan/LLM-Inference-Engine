@@ -28,7 +28,7 @@ production inference and GPU benchmarks.
   there is no full FP16-activation transformer. FP16 RMSNorm inputs have a separate entry point.
 - Attention processes one query/head per CTA. It is online and tiled, but not a
   reproduction of highly tuned FlashAttention kernels.
-- Contiguous cache baseline is allocation accounting, not an alternate serving backend.
+- Contiguous cache baseline has accounting and a CUDA allocation benchmark, not an alternate serving backend.
 - The synchronous workload runner supports scheduled arrivals, not live concurrent
   external submission. It reports cache OOM per request rather than retrying or swapping.
 - Quantization perplexity, real model storage reduction, CUDA numerical accuracy,

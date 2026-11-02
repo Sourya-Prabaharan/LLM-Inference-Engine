@@ -31,12 +31,15 @@ def generate(directory):
     batching = read('batching.json')
     if batching:
         checks.append(('Continuous/static throughput >= 3x', batching['speedup'], batching['speedup'] >= 3))
+    cache = read('kv_gpu.json')
+    if cache is not None:
+        checks.append(('Sized GPU KV pool waste reduction >= 90%', cache['waste_reduction_fraction'], cache['waste_reduction_fraction'] >= .9))
     lines += ['| Target | Actual value | Outcome |', '|---|---:|---|']
     for label, actual, passed in checks:
         lines.append(f"| {label} | {actual:.9g} | {'Met' if passed else 'Not met'} |")
     if not checks:
         lines.append('| No measured results available | — | Unverified |')
-    lines += ['', 'Missing measurements remain unverified. KV accounting is analytical and does not certify GPU memory savings.',
+    lines += ['', 'Missing measurements remain unverified. KV GPU measurements use a pool sized to the identical live workload; analytical accounting is reported separately.',
               'An unmet performance target is reported as measured; it is never replaced with the target number.', '']
     result = '\n'.join(lines)
     (root / 'report.md').write_text(result)

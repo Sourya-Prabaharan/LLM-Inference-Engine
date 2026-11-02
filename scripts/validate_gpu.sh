@@ -31,5 +31,6 @@ python3 benchmarks/benchmark_end_to_end.py --binary build-cuda/llm_inference --m
 python3 benchmarks/benchmark_batching.py --binary build-cuda/llm_inference --model models/tinyllama-fp16 --requests configs/workload.tsv --output results/gpu/batching.json
 # No smoke-test token limit: evaluate the complete WikiText-2 test split.
 python3 benchmarks/benchmark_quantization.py --binary build-cuda/llm_inference --fp16-model models/tinyllama-fp16 --int8-model models/tinyllama-int8 --reference-model models/tinyllama-hf --output results/gpu/quantization.json
+./build-cuda/cache_benchmark > results/gpu/kv_gpu.json
 python3 benchmarks/benchmark_kv_cache.py --output results/gpu/kv_accounting.json
 python3 benchmarks/report_gpu_results.py --directory results/gpu

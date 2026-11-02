@@ -30,3 +30,10 @@ to any request. Reducing assigned waste does not release the pool to the driver.
 The contiguous baseline is accounting only; there is no alternate contiguous serving
 backend. GPU concurrency/isolation tests must still be executed. Cache exhaustion
 fails a request visibly and releases its blocks; swapping and preemption are absent.
+
+`cache_benchmark` additionally allocates and initializes actual CUDA pools for both
+schemes, recording requested bytes and driver free-memory deltas. Both pools serve
+the same listed live workload; the paged pool is sized to its required blocks, with
+no extra reserve. This isolates allocation waste rather than claiming that the
+runtime's default fixed-size pool shrinks automatically. Its results remain
+unmeasured until the GPU validation script runs on hardware.
