@@ -30,8 +30,9 @@ jobs:
             python3 - <<'PYDIAGNOSTICS'
           from pathlib import Path
           text = Path('cuda-build.log').read_text(errors='replace')[-14000:]
-          escaped = text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
-          print('::error title=CUDA compiler diagnostics::' + escaped)
+          for start in range(0, len(text), 3000):
+              escaped = text[start:start+3000].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              print('::error title=CUDA compiler diagnostics::' + escaped)
           PYDIAGNOSTICS
           fi
           exit "$status"
