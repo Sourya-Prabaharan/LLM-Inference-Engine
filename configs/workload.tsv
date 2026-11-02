@@ -1,0 +1,10 @@
+0	64	Explain how CUDA kernels work.
+0	16	Name three uses of GPUs.
+5	128	Describe transformer attention step by step.
+10	32	What is a KV cache?
+20	8	Complete: The capital of France is
+30	64	Explain the difference between prefill and decode.
+40	16	What is matrix multiplication?
+50	96	Explain grouped query attention and its memory requirements.
+60	32	Why use INT8 weights?
+70	8	What does GPU stand for?
