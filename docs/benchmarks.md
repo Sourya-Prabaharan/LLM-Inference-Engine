@@ -28,8 +28,8 @@ Quantization compares actual exported model-file sizes and separately evaluates
 WikiText-2 test perplexity. Evaluation uses non-overlapping 512-token windows, scores
 next tokens within each window and omits cross-window transitions. FP16 and INT8 must
 use the same tokenizer, corpus, context, and token limit. `--max-tokens` is an optional
-smoke test limit; never present that as full-corpus perplexity. The evaluator currently
-reloads the engine per window, so its duration is not an inference performance metric.
+smoke test limit; never present that as full-corpus perplexity. The evaluator loads the engine once and scores windows with packed prefill, using
+FP64 log-sum-exp on the host. Its duration is not an inference performance metric.
 
 Useful commands:
 

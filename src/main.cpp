@@ -1,5 +1,6 @@
 #include "engine.h"
 #include "tokenizer.h"
+#include <cmath>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -16,7 +17,8 @@ int main(int argc, char **argv) {
                              "--requests FILE] [--max-tokens 128] [--temperature 0] [--top-k 0] "
                              "[--precision fp16|fp32|int8] [--batch-size 8] [--kv-block-size 16] "
                              "[--kv-blocks 1024] [--policy static|continuous] [--seed 42] [--chat] "
-                             "[--interactive] [--benchmark] [--logits FILE]\nRequests TSV: "
+                             "[--interactive] [--benchmark] [--logits FILE] [--score-tokens "
+                             "INT32_FILE --score-context 512]\nRequests TSV: "
                              "arrival_ms<TAB>max_tokens<TAB>prompt\n";
                 return 0;
             }
@@ -33,7 +35,8 @@ int main(int argc, char **argv) {
                     key != "--requests" && key != "--max-tokens" && key != "--temperature" &&
                     key != "--top-k" && key != "--precision" && key != "--batch-size" &&
                     key != "--kv-block-size" && key != "--kv-blocks" && key != "--policy" &&
-                    key != "--seed" && key != "--logits")
+                    key != "--seed" && key != "--logits" && key != "--score-tokens" &&
+                    key != "--score-context")
                     throw std::invalid_argument("unknown option: " + key);
                 args[key] = argv[++i];
             }
@@ -56,6 +59,25 @@ int main(int argc, char **argv) {
         if (args.count("--precision") && args["--precision"] != engine.weight_precision())
             throw std::invalid_argument(
                 "--precision does not match actual linear weight storage; reconvert weights");
+        if (args.count("--score-tokens")) {
+            if (args.count("--tokens") || args.count("--prompt") || args.count("--requests") ||
+                interactive || benchmark)
+                throw std::invalid_argument("scoring cannot be combined with generation flags");
+            std::ifstream file(args["--score-tokens"], std::ios::binary | std::ios::ate);
+            auto bytes = file.tellg();
+            if (bytes < 0 || bytes % 4 || bytes > std::streamoff(1024) * 1024 * 1024)
+                throw std::invalid_argument("invalid score-token file");
+            std::vector<int> tokens(size_t(bytes) / 4);
+            file.seekg(0);
+            if (!file.read(reinterpret_cast<char *>(tokens.data()), bytes))
+                throw std::runtime_error("score-token read failed");
+            auto result = engine.score(tokens, std::stoul(get("--score-context", "512")));
+            std::cout << std::setprecision(17)
+                      << "{\"backend\":\"CUDA\",\"negative_log_likelihood\":" << result.first
+                      << ",\"scored_tokens\":" << result.second
+                      << ",\"perplexity\":" << std::exp(result.first / result.second) << "}\n";
+            return 0;
+        }
         auto &c = engine.config();
         std::unique_ptr<llm::Tokenizer> tokenizer;
         if (!args.count("--tokens"))

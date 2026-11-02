@@ -131,18 +131,51 @@ void Engine::run(std::vector<InferenceRequest> &requests, Policy policy) {
         }
     }
 }
-std::vector<float> Engine::logits(const std::vector<int> &tokens) {
+std::vector<float> Engine::logits(const std::vector<int> &tokens, size_t chunk_size) {
     if (tokens.empty() || tokens.size() > config().context)
         throw std::invalid_argument("logit sequence length");
+    if (chunk_size == 0 || chunk_size > size_t(token_capacity(batch_)))
+        throw std::invalid_argument("logit chunk exceeds token batch capacity");
     PagedKVCache cache(blocks_, block_size_);
     cache.allocate_request(0);
     std::vector<float> all;
     all.reserve(tokens.size() * config().vocab);
-    for (size_t p = 0; p < tokens.size(); ++p) {
-        cache.append_tokens(0, 1);
-        auto row = model_.forward({tokens[p]}, {int(p)}, {cache.get_block_table(0)});
-        all.insert(all.end(), row.begin(), row.end());
+    for (size_t p = 0; p < tokens.size(); p += chunk_size) {
+        size_t count = std::min(chunk_size, tokens.size() - p);
+        cache.append_tokens(0, count);
+        std::vector<int> ids(tokens.begin() + p, tokens.begin() + p + count), positions(count);
+        std::iota(positions.begin(), positions.end(), int(p));
+        std::vector<std::vector<int>> tables(count, cache.get_block_table(0));
+        auto rows = model_.forward(ids, positions, tables);
+        all.insert(all.end(), rows.begin(), rows.end());
     }
     return all;
+}
+std::pair<double, size_t> Engine::score(const std::vector<int> &tokens, size_t context) {
+    if (context < 2 || context > config().context)
+        throw std::invalid_argument("invalid scoring context");
+    double nll = 0;
+    size_t count = 0;
+    for (size_t start = 0; start < tokens.size(); start += context) {
+        size_t length = std::min(context, tokens.size() - start);
+        if (length < 2)
+            continue;
+        std::vector<int> window(tokens.begin() + start, tokens.begin() + start + length);
+        auto output = logits(window, size_t(token_capacity(batch_)));
+        for (size_t r = 0; r + 1 < length; ++r) {
+            const float *row = output.data() + r * config().vocab;
+            double maximum = *std::max_element(row, row + config().vocab), sum = 0;
+            for (size_t i = 0; i < config().vocab; ++i) {
+                if (!std::isfinite(row[i]))
+                    throw std::runtime_error("nonfinite scoring logits");
+                sum += std::exp(double(row[i]) - maximum);
+            }
+            nll += maximum + std::log(sum) - row[window[r + 1]];
+            ++count;
+        }
+    }
+    if (count == 0)
+        throw std::invalid_argument("no tokens to score");
+    return {nll, count};
 }
 } // namespace llm

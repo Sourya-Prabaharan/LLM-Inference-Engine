@@ -8,7 +8,8 @@ from pathlib import Path
 import numpy as np
 from transformers import AutoTokenizer
 from datasets import load_dataset
-from validate_logits import engine_logits
+import subprocess
+import tempfile
 
 
 def evaluate(binary, model, reference_model, context=512, max_tokens=None):
@@ -17,18 +18,14 @@ def evaluate(binary, model, reference_model, context=512, max_tokens=None):
     data = load_dataset('wikitext', 'wikitext-2-raw-v1', split='test')
     tokens = tokenizer('\n\n'.join(data['text']), add_special_tokens=False)['input_ids']
     if max_tokens is not None: tokens = tokens[:max_tokens]
-    vocab = json.loads((Path(model) / 'config.json').read_text())['vocab_size']
-    nll, count = 0., 0
-    for start in range(0, len(tokens), context):
-        chunk = tokens[start:start+context]
-        if len(chunk) < 2: continue
-        logits = engine_logits(binary, model, chunk, vocab)[:-1].astype(np.float64)
-        maximum = logits.max(axis=1)
-        log_partition = maximum + np.log(np.exp(logits - maximum[:, None]).sum(axis=1))
-        nll += float((log_partition - logits[np.arange(len(chunk)-1), chunk[1:]]).sum())
-        count += len(chunk)-1
-    if not count: raise ValueError('no scored tokens')
-    return dict(perplexity=float(np.exp(nll/count)), negative_log_likelihood=nll, scored_tokens=count, context=context, protocol='non-overlapping windows, omit boundary transitions', max_tokens=max_tokens)
+    with tempfile.TemporaryDirectory() as directory:
+        path = Path(directory) / 'tokens.bin'
+        np.asarray(tokens, dtype='<i4').tofile(path)
+        result = json.loads(subprocess.check_output([
+            binary, '--model', model, '--score-tokens', str(path),
+            '--score-context', str(context)], text=True))
+    result.update(context=context, protocol='non-overlapping windows, omit boundary transitions', max_tokens=max_tokens)
+    return result
 
 if __name__ == '__main__':
     p = argparse.ArgumentParser(); p.add_argument('--binary', default='build/llm_inference'); p.add_argument('--model', required=True); p.add_argument('--reference-model', required=True); p.add_argument('--context', type=int, default=512); p.add_argument('--max-tokens', type=int); p.add_argument('--output', default='results/perplexity.json'); a = p.parse_args()

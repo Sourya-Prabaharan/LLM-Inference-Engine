@@ -40,6 +40,7 @@ class Engine {
     std::vector<int> generate(const std::vector<int> &prompt_tokens, int max_new_tokens,
                               float temperature, int top_k);
     void run(std::vector<InferenceRequest> &requests, Policy policy = Policy::Continuous);
-    std::vector<float> logits(const std::vector<int> &tokens);
+    std::vector<float> logits(const std::vector<int> &tokens, size_t chunk_size = 1);
+    std::pair<double, size_t> score(const std::vector<int> &tokens, size_t context);
 };
 } // namespace llm
