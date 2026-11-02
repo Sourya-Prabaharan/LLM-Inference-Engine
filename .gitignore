@@ -1,0 +1,8 @@
+build*/
+models/
+.venv/
+__pycache__/
+*.pyc
+results/*.npy
+results/*.bin
+.DS_Store
