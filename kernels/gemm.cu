@@ -42,12 +42,64 @@ __global__ void gemm(const A *a, const T *w, const float *scales, float *c, int 
     if (row < M && col < N)
         c[row * N + col] = sum;
 }
+// The measured 16x16 baseline spends too much work on shared-memory traffic and
+// barriers. A 4x4 register microtile reuses each operand across sixteen FMAs.
+// Global reads remain contiguous along K; columns are interleaved across lanes
+// to keep shared B reads broadcast/coalesced rather than four-way bank-strided.
+template <class T>
+__global__ void gemm_register(const float *a, const T *w, const float *scales, float *out, int M,
+                              int N, int K, int group) {
+    constexpr int BM = 32, BN = 64, BK = 32;
+    __shared__ float as[BM][BK], bs[BK][BN + 1];
+    int tx = threadIdx.x, ty = threadIdx.y, tid = ty * 16 + tx;
+    float acc[4][4] = {};
+    for (int start = 0; start < K; start += BK) {
+        for (int i = tid; i < BM * BK; i += 128) {
+            int row = blockIdx.y * BM + i / BK, k = start + i % BK;
+            as[i / BK][i % BK] = (row < M && k < K) ? a[row * K + k] : 0;
+        }
+        for (int i = tid; i < BN * BK; i += 128) {
+            int col = blockIdx.x * BN + i / BK, k = start + i % BK;
+            bs[i % BK][i / BK] = (col < N && k < K) ? read_weight(w, scales, col, k, K, group) : 0;
+        }
+        __syncthreads();
+#pragma unroll
+        for (int k = 0; k < BK; ++k) {
+            float av[4], bv[4];
+#pragma unroll
+            for (int i = 0; i < 4; ++i) {
+                av[i] = as[ty + i * 8][k];
+                bv[i] = bs[k][tx + i * 16];
+            }
+#pragma unroll
+            for (int i = 0; i < 4; ++i) {
+#pragma unroll
+                for (int j = 0; j < 4; ++j)
+                    acc[i][j] = fmaf(av[i], bv[j], acc[i][j]);
+            }
+        }
+        __syncthreads();
+    }
+#pragma unroll
+    for (int i = 0; i < 4; ++i) {
+        int row = blockIdx.y * BM + ty + i * 8;
+#pragma unroll
+        for (int j = 0; j < 4; ++j) {
+            int col = blockIdx.x * BN + tx + j * 16;
+            if (row < M && col < N)
+                out[row * N + col] = acc[i][j];
+        }
+    }
+}
 template <class T>
 void launch(const float *a, const void *w, const float *s, float *c, int M, int N, int K, int g,
             StreamHandle stream, bool naive) {
     dim3 grid((N + 15) / 16, (M + 15) / 16), block(16, 16);
     if (naive)
         gemm<T, false><<<grid, block, 0, stream>>>(a, static_cast<const T *>(w), s, c, M, N, K, g);
+    else if (M >= 32)
+        gemm_register<T><<<dim3((N + 63) / 64, (M + 31) / 32), dim3(16, 8), 0, stream>>>(
+            a, static_cast<const T *>(w), s, c, M, N, K, g);
     else
         gemm<T, true><<<grid, block, 0, stream>>>(a, static_cast<const T *>(w), s, c, M, N, K, g);
 }

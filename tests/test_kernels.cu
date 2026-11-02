@@ -36,7 +36,8 @@ int main() {
                 v = dist(rng);
             return x;
         };
-        for (auto shape : std::vector<std::vector<int>>{{1, 7, 19}, {17, 33, 31}, {32, 32, 32}}) {
+        for (auto shape :
+             std::vector<std::vector<int>>{{1, 7, 19}, {17, 33, 31}, {32, 32, 32}, {35, 67, 37}}) {
             int m = shape[0], n = shape[1], k = shape[2];
             auto a = random(m * k), w = random(n * k);
             auto da = gpu_data(a), dw = gpu_data(w);
